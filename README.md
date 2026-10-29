@@ -44,13 +44,12 @@ Abre **`http://localhost:3000/`** en Google Chrome, Microsoft Edge, Brave, Safar
    - En **Windows**: Presiona `Win + P` y elige **Extender**.
    - En **Mac**: Ve a **Ajustes del Sistema > Pantallas > Usar como pantalla extendida**.
 3. **Lanzar la letra:**
-   - En tu laptop, introduce la letra, título, tonalidad y BPM.
-   - Pulsa el botón amarillo **INICIAR LETRA**.
-   - Se abrirá una nueva pestaña/ventana con la letra corriendo automáticamente.
-4. **Mover al TV y Pantalla Completa:**
-   - Arrastra esa ventana hacia el televisor.
-   - Presiona la tecla **`F`** (o el botón de pantalla completa) para que ocupe todo el televisor con fondo negro puro.
-   - Puedes controlar la velocidad con **`+`** / **`-`** o pausar con la **Barra Espaciadora**.
+   - En tu computador/laptop, introduce la letra, título, tonalidad y BPM en la pestaña **Inicio** (o selecciona una canción en la **Biblioteca**).
+   - Pulsa el botón amarillo **INICIAR LETRA** (o **Ensayar** en la Biblioteca).
+   - La aplicación pasará inmediatamente a la sección **Canción**, con la letra corriendo automáticamente en fondo negro puro.
+4. **Modo Escenario y Pantalla Completa:**
+   - Si tienes la ventana en el televisor o pantalla secundaria, presiona la tecla **`F`** (o el botón de pantalla completa en la barra superior) para ocultar las barras del navegador y ocupar el 100% del televisor.
+   - Puedes regular la velocidad en tiempo real de 1 a 20 con el slider o los botones **`+`** / **`-`**, o pausar con la **Barra Espaciadora**.
 
 ---
 
