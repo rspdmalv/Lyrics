@@ -1,0 +1,6 @@
+{
+  "name": "StageLyrics — Teleprompter Musical",
+  "description": "Teleprompter musical profesional para ensayos de banda con sincronización dual en tiempo real para televisor externo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
