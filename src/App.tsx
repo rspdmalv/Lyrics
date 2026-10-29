@@ -16,8 +16,20 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { PlaybackState, Setlist, Song, VisualSettings, calculateSpeedFromBpm } from './types';
 import { storageService, DEFAULT_VISUAL_SETTINGS } from './services/storage';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useAuth } from './context/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { ActivityLogModal } from './components/ActivityLogModal';
+import { EmailVerificationBanner } from './components/EmailVerificationBanner';
+import { 
+  saveSongToFirestore, 
+  deleteSongFromFirestore, 
+  subscribeToUserSongs, 
+  syncLocalSongsToFirestore, 
+  addActivityLog 
+} from './services/firestoreService';
 
 export default function App() {
+  const { user, emailVerified } = useAuth();
   // App Navigation tab: 'inicio' | 'cancion' | 'library' | 'setlists' | 'settings'
   const [activeTab, setActiveTab] = useState<ActiveTab>('inicio');
 
@@ -47,6 +59,27 @@ export default function App() {
   const [songToEdit, setSongToEdit] = useState<Song | null>(null);
   const [isTvGuideOpen, setIsTvGuideOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
+
+  // Subscribe to Firestore user songs when user is logged in & email is verified
+  useEffect(() => {
+    if (!user || !emailVerified) return;
+
+    const unsubscribe = subscribeToUserSongs(
+      user.uid,
+      cloudSongs => {
+        if (cloudSongs.length > 0) {
+          setSongs(cloudSongs);
+          storageService.saveSongs(cloudSongs);
+        }
+      },
+      err => {
+        console.warn('Suscripción Firestore:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, emailVerified]);
 
   // Find active song object
   const activeSong = songs.find(s => s.id === activeSongId) || (songs.length > 0 ? songs[0] : null);
@@ -68,6 +101,19 @@ export default function App() {
     storageService.saveActiveSong(song);
     setSongs(updated);
     setActiveSongId(song.id);
+
+    // If verified user, sync to Firestore and record activity log
+    if (user && emailVerified) {
+      saveSongToFirestore(user.uid, song, user.email || '').catch(err => {
+        console.warn('Error sincronizando canción en Firestore:', err);
+      });
+      addActivityLog(
+        user.uid,
+        user.email || '',
+        'rehearsal_start',
+        `Ensayo iniciado: "${song.title}" (${song.musicalKey || 'Sin tonalidad'}, ${song.bpm ? song.bpm + ' BPM' : 'Sin BPM'})`
+      );
+    }
 
     // 2. Compute speed on 1 to 20 scale
     const targetSpeed = initialSpeed || (song.bpm ? calculateSpeedFromBpm(song.bpm) : playback.speed || 8);
@@ -199,13 +245,23 @@ export default function App() {
     storageService.saveSettings(newSettings);
   };
 
-  const handleSaveSong = (song: Song) => {
+  const handleSaveSong = async (song: Song) => {
     const updated = storageService.saveSong(song);
     setSongs(updated);
     setActiveSongId(song.id);
+
+    // Persist to user's Firestore collection if logged in & verified
+    if (user && emailVerified) {
+      try {
+        await saveSongToFirestore(user.uid, song, user.email || '');
+      } catch (e) {
+        console.warn('Error guardando en Firestore:', e);
+      }
+    }
   };
 
-  const handleDeleteSong = (songId: string) => {
+  const handleDeleteSong = async (songId: string) => {
+    const target = songs.find(s => s.id === songId);
     const updated = storageService.deleteSong(songId);
     setSongs(updated);
     setSetlists(storageService.getSetlists());
@@ -213,6 +269,21 @@ export default function App() {
       const nextSongId = updated.length > 0 ? updated[0].id : null;
       setActiveSongId(nextSongId);
     }
+
+    // Delete from user's Firestore collection if logged in & verified
+    if (user && emailVerified && target) {
+      try {
+        await deleteSongFromFirestore(user.uid, songId, target.title, user.email || '');
+      } catch (e) {
+        console.warn('Error eliminando de Firestore:', e);
+      }
+    }
+  };
+
+  const handleSyncLocalToCloud = async () => {
+    if (!user || !emailVerified) return;
+    const localSongs = storageService.getSongs();
+    await syncLocalSongsToFirestore(user.uid, user.email || '', localSongs);
   };
 
   const handleDuplicateSong = (songId: string) => {
@@ -296,13 +367,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#090a0f] text-slate-100 flex flex-col font-sans">
-      {/* Top Bar Navigation: Clean, with Canción tab when active, and NO Teleprompter button */}
+      {/* Email Verification Alert Banner for registered users */}
+      <EmailVerificationBanner />
+
+      {/* Top Bar Navigation: Clean, with Canción tab when active, and User Account button */}
       <Navigation
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         hasActiveSong={!!activeSong}
         onOpenTvGuide={() => setIsTvGuideOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenLogs={() => setIsLogsOpen(true)}
       />
 
       {/* Main View Area */}
@@ -373,7 +448,7 @@ export default function App() {
           />
         )}
 
-        {/* Sección Ajustes: Tipografía, interlineado, márgenes y copias de seguridad */}
+        {/* Sección Ajustes: Tipografía, interlineado, márgenes, base de datos y copias de seguridad */}
         {activeTab === 'settings' && (
           <SettingsView
             settings={settings}
@@ -382,6 +457,8 @@ export default function App() {
             onClearAllData={handleClearAllData}
             onOpenTvGuide={() => setIsTvGuideOpen(true)}
             onRefreshData={handleRefreshData}
+            onOpenLogs={() => setIsLogsOpen(true)}
+            onSyncLocalToCloud={handleSyncLocalToCloud}
           />
         )}
       </main>
@@ -406,6 +483,13 @@ export default function App() {
       <ShortcutsModal
         isOpen={isShortcutsOpen}
         onClose={() => setIsShortcutsOpen(false)}
+      />
+
+      {/* Auth & Activity Logs Modals */}
+      <AuthModal />
+      <ActivityLogModal
+        isOpen={isLogsOpen}
+        onClose={() => setIsLogsOpen(false)}
       />
     </div>
   );

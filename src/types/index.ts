@@ -58,6 +58,7 @@ export interface SongSection {
 
 export interface Song {
   id: string;
+  userId?: string;
   title: string;
   artist: string;
   bpm?: number;
@@ -67,6 +68,24 @@ export interface Song {
   sections: SongSection[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface UserAccount {
+  uid: string;
+  email: string;
+  displayName: string;
+  emailVerified: boolean;
+  createdAt: string;
+  lastLoginAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  action: 'register' | 'login' | 'email_verified' | 'song_create' | 'song_edit' | 'song_delete' | 'rehearsal_start';
+  details: string;
+  timestamp: string;
 }
 
 export interface Setlist {

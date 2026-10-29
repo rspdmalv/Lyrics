@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document containing account metadata",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the user matching Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "emailVerified": {
+          "type": "boolean",
+          "description": "Whether the email has been confirmed"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user account was created"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user last logged in"
+        }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "Song owned and rehearsed by the user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique song ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user UID"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Song title"
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Musical key of the song"
+        },
+        "bpm": {
+          "type": "number",
+          "description": "Song tempo in BPM"
+        },
+        "lyrics": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Full lyrics content"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last update"
+        }
+      },
+      "required": ["id", "userId", "title", "lyrics", "createdAt", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Audit and activity log entry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique log entry ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the user performing the action"
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the user performing the action"
+        },
+        "action": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Type of event (login, song_created, etc)"
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Descriptive details about the event"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the log entry"
+        }
+      },
+      "required": ["id", "userId", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/songs/{songId}": {
+      "schema": "Song",
+      "description": "Songs collection belonging to a user"
+    },
+    "/users/{userId}/logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Activity logs collection belonging to a user"
+    }
+  }
+}

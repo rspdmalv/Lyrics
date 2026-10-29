@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isOwner(userId) && request.auth.token.email_verified == true;
+    }
+
+    function isValidUser(data, userId) {
+      return data.id == userId
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 200
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('emailVerified' in data) || data.emailVerified is bool);
+    }
+
+    function isValidSong(data, userId) {
+      return data.userId == userId
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 150
+        && data.lyrics is string && data.lyrics.size() <= 50000
+        && (!('key' in data) || (data.key is string && data.key.size() <= 10))
+        && (!('bpm' in data) || data.bpm is number);
+    }
+
+    function isValidLog(data, userId) {
+      return data.userId == userId
+        && data.action is string && data.action.size() > 0 && data.action.size() <= 100
+        && (!('details' in data) || (data.details is string && data.details.size() <= 1000));
+    }
+
+    // User profile
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming(), userId);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming(), userId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'emailVerified', 'lastLoginAt']);
+      allow delete: if false;
+
+      // Songs subcollection owned by the user
+      match /songs/{songId} {
+        allow get: if isOwner(userId) && isValidId(songId);
+        allow list: if isOwner(userId);
+        allow create: if isVerifiedOwner(userId) && isValidId(songId) && isValidSong(incoming(), userId);
+        allow update: if isVerifiedOwner(userId) && isValidId(songId) && isValidSong(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'key', 'bpm', 'lyrics', 'updatedAt']);
+        allow delete: if isVerifiedOwner(userId) && isValidId(songId);
+      }
+
+      // Activity logs subcollection
+      match /logs/{logId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(logId) && isValidLog(incoming(), userId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}

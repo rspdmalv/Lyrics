@@ -13,10 +13,19 @@ import {
   Tv, 
   Check, 
   AlertCircle, 
-  Eye
+  Eye,
+  Database,
+  Cloud,
+  FileText,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { TextMaxWidth, VisualSettings } from '../types';
 import { DEFAULT_VISUAL_SETTINGS, storageService } from '../services/storage';
+import { useAuth } from '../context/AuthContext';
 
 interface SettingsViewProps {
   settings: VisualSettings;
@@ -25,6 +34,8 @@ interface SettingsViewProps {
   onClearAllData: () => void;
   onOpenTvGuide: () => void;
   onRefreshData: () => void;
+  onOpenLogs?: () => void;
+  onSyncLocalToCloud?: () => Promise<void>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -34,11 +45,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClearAllData,
   onOpenTvGuide,
   onRefreshData,
+  onOpenLogs,
+  onSyncLocalToCloud,
 }) => {
+  const { user, emailVerified, openAuthModal, logout, refreshVerification } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [savedBadge, setSavedBadge] = useState(false);
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+
 
   const handleSettingChange = <K extends keyof VisualSettings>(key: K, value: VisualSettings[K]) => {
     const updated = { ...settings, [key]: value };
@@ -100,6 +117,142 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Check className="w-3.5 h-3.5" /> Cambios sincronizados
           </div>
         )}
+      </div>
+
+      {/* Cloud Database & Account Group */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+          <Database className="w-4 h-4 text-amber-400" />
+          Base de Datos en la Nube y Cuenta de Usuario
+        </h2>
+
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm font-semibold text-white">Google Cloud Firestore Conectado</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Almacenamiento seguro en la nube para canciones individuales por usuario y logs de auditoría.
+              </p>
+            </div>
+
+            {user ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/50 text-red-300 border border-red-800/50 rounded-xl text-xs font-medium transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Cerrar Sesión
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openAuthModal('login')}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-amber-400" />
+                  Iniciar Sesión
+                </button>
+                <button
+                  onClick={() => openAuthModal('register')}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs transition-colors"
+                >
+                  Crear Cuenta
+                </button>
+              </div>
+            )}
+          </div>
+
+          {user ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                <span className="text-slate-400 block">Usuario Conectado</span>
+                <span className="font-semibold text-white truncate block">{user.displayName || 'Músico'}</span>
+                <span className="text-slate-400 text-[11px] truncate block">{user.email}</span>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
+                <span className="text-slate-400 block">Estado del Correo</span>
+                <div className="flex items-center gap-1.5">
+                  {emailVerified ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="font-semibold text-emerald-400">Confirmado y Habilitado</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      <span className="font-semibold text-amber-400">Verificación Pendiente</span>
+                    </>
+                  )}
+                </div>
+                {!emailVerified && (
+                  <button
+                    onClick={refreshVerification}
+                    className="mt-1 text-[11px] text-amber-300 hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Comprobar confirmación
+                  </button>
+                )}
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl flex flex-col justify-between gap-2">
+                <span className="text-slate-400 block">Herramientas de Auditoría</span>
+                <div className="flex flex-wrap gap-2">
+                  {onOpenLogs && (
+                    <button
+                      onClick={onOpenLogs}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium text-xs transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      Ver Logs ({user.email?.split('@')[0]})
+                    </button>
+                  )}
+                  {onSyncLocalToCloud && (
+                    <button
+                      onClick={async () => {
+                        setSyncingCloud(true);
+                        setSyncSuccess(null);
+                        try {
+                          await onSyncLocalToCloud();
+                          setSyncSuccess('Canciones sincronizadas con tu cuenta en la nube.');
+                          setTimeout(() => setSyncSuccess(null), 3500);
+                        } finally {
+                          setSyncingCloud(false);
+                        }
+                      }}
+                      disabled={syncingCloud}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium text-xs transition-colors disabled:opacity-50"
+                    >
+                      <Cloud className={`w-3.5 h-3.5 text-blue-400 ${syncingCloud ? 'animate-bounce' : ''}`} />
+                      {syncingCloud ? 'Sincronizando...' : 'Subir canciones locales'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-950/50 border border-slate-800/80 rounded-xl flex items-center justify-between gap-4 text-xs">
+              <div className="space-y-1">
+                <p className="text-white font-medium">Modo Local Activo</p>
+                <p className="text-slate-400 leading-relaxed">
+                  Estás utilizando el almacenamiento local del navegador. Crea una cuenta gratuita con tu correo y contraseña para guardar tus canciones en la base de datos y tenerlas disponibles en cualquier computador.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {syncSuccess && (
+            <div className="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{syncSuccess}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Visual Settings Group */}
